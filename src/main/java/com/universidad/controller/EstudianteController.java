@@ -66,6 +66,7 @@ public class EstudianteController { // Define la clase EstudianteController
         return ResponseEntity.ok(estudiante);
     }
 
+
     @PostMapping // Anotación que indica que este método maneja solicitudes POST
     @Transactional // Anotación que indica que este método debe ejecutarse dentro de una transacción
     @ResponseStatus(HttpStatus.CREATED) // Anotación que indica que la respuesta HTTP debe tener un estado 201 Created

@@ -2,9 +2,7 @@ package com.universidad.controller;
 
 import com.universidad.model.Materia;
 import com.universidad.service.IMateriaService;
-
 import jakarta.transaction.Transactional;
-
 import com.universidad.dto.MateriaDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -41,59 +39,150 @@ public class MateriaController {
     public ResponseEntity<MateriaDTO> obtenerMateriaPorId(@PathVariable Long id) {
         long inicio = System.currentTimeMillis();
         logger.info("[MATERIA] Inicio obtenerMateriaPorId: {}", inicio);
-        MateriaDTO materia = materiaService.obtenerMateriaPorId(id);
-        long fin = System.currentTimeMillis();
-        logger.info("[MATERIA] Fin obtenerMateriaPorId: {} (Duracion: {} ms)", fin, (fin-inicio));
-        if (materia == null) {
+        try {
+            MateriaDTO materia = materiaService.obtenerMateriaPorId(id);
+            long fin = System.currentTimeMillis();
+            logger.info("[MATERIA] Fin obtenerMateriaPorId: {} (Duracion: {} ms)", fin, (fin-inicio));
+            return ResponseEntity.ok(materia);
+        } catch (Exception e) {
+            logger.error("[MATERIA] Error en obtenerMateriaPorId: {}", e.getMessage());
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(materia);
     }
 
     @GetMapping("/codigo/{codigoUnico}")
     public ResponseEntity<MateriaDTO> obtenerMateriaPorCodigoUnico(@PathVariable String codigoUnico) {
-        MateriaDTO materia = materiaService.obtenerMateriaPorCodigoUnico(codigoUnico);
-        if (materia == null) {
+        try {
+            MateriaDTO materia = materiaService.obtenerMateriaPorCodigoUnico(codigoUnico);
+            return ResponseEntity.ok(materia);
+        } catch (Exception e) {
+            logger.error("[MATERIA] Error en obtenerMateriaPorCodigoUnico: {}", e.getMessage());
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(materia);
     }
 
     @PostMapping
-    public ResponseEntity<MateriaDTO> crearMateria(@RequestBody MateriaDTO materia) {
-        //MateriaDTO materiaDTO = new MateriaDTO(materia.getId(), materia.getNombre(), materia.getCodigoUnico());
-        MateriaDTO nueva = materiaService.crearMateria(materia);
-        return ResponseEntity.status(HttpStatus.CREATED).body(nueva);
+    public ResponseEntity<?> crearMateria(@RequestBody MateriaDTO materia) {
+        try {
+            MateriaDTO nueva = materiaService.crearMateria(materia);
+            return ResponseEntity.status(HttpStatus.CREATED).body(nueva);
+        } catch (IllegalArgumentException e) {
+            logger.error("[MATERIA] Error al crear materia: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            logger.error("[MATERIA] Error al crear materia: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al crear la materia: " + e.getMessage());
+        }
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<MateriaDTO> actualizarMateria(@PathVariable Long id, @RequestBody MateriaDTO materia) {
-        //MateriaDTO materiaDTO = new MateriaDTO(materia.getId(), materia.getNombreMateria(), materia.getCodigoUnico());
-        MateriaDTO actualizadaDTO = materiaService.actualizarMateria(id, materia);
-        //Materia actualizada = new Materia(actualizadaDTO.getId(), actualizadaDTO.getNombre(), actualizadaDTO.getCodigoUnico());
-        return ResponseEntity.ok(actualizadaDTO);
+    public ResponseEntity<?> actualizarMateria(@PathVariable Long id, @RequestBody MateriaDTO materia) {
+        try {
+            MateriaDTO actualizadaDTO = materiaService.actualizarMateria(id, materia);
+            return ResponseEntity.ok(actualizadaDTO);
+        } catch (IllegalArgumentException e) {
+            logger.error("[MATERIA] Error al actualizar materia: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            logger.error("[MATERIA] Error al actualizar materia: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al actualizar la materia: " + e.getMessage());
+        }
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> eliminarMateria(@PathVariable Long id) {
-        materiaService.eliminarMateria(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<?> eliminarMateria(@PathVariable Long id) {
+        try {
+            materiaService.eliminarMateria(id);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalStateException e) {
+            // Error específico cuando la materia es prerrequisito de otras
+            logger.error("[MATERIA] Error al eliminar: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+        } catch (Exception e) {
+            logger.error("[MATERIA] Error al eliminar: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al eliminar la materia: " + e.getMessage());
+        }
     }
 
-    @GetMapping("/formaria-circulo/{materiaId}/{prerequisitoId}") // Endpoint para verificar si una materia formaría un círculo con un prerequisito
-    @Transactional // Anotación que indica que este método debe ejecutarse dentro de una transacción
+    @GetMapping("/formaria-circulo/{materiaId}/{prerequisitoId}")
+    @Transactional
     public ResponseEntity<Boolean> formariaCirculo(@PathVariable Long materiaId, @PathVariable Long prerequisitoId) {
-        MateriaDTO materiaDTO = materiaService.obtenerMateriaPorId(materiaId); // Obtiene la materia por su ID
-        if (materiaDTO == null) { // Verifica si la materia existe
+        try {
+            MateriaDTO materiaDTO = materiaService.obtenerMateriaPorId(materiaId);
+            Materia materia = new Materia(materiaDTO.getId(), materiaDTO.getNombreMateria(), materiaDTO.getCodigoUnico());
+            boolean circulo = materia.formariaCirculo(prerequisitoId);
+            if (circulo) {
+                return ResponseEntity.badRequest().body(circulo);
+            }
+            return ResponseEntity.ok(circulo);
+        } catch (Exception e) {
+            logger.error("[MATERIA] Error en formariaCirculo: {}", e.getMessage());
             return ResponseEntity.notFound().build();
         }
-        Materia materia = new Materia(materiaDTO.getId(), materiaDTO.getNombreMateria(), materiaDTO.getCodigoUnico());
-        // Crea una nueva instancia de Materia con los datos obtenidos
-        // Verifica si agregar el prerequisito formaría un círculo
-        boolean circulo = materia.formariaCirculo(prerequisitoId); // Llama al método formariaCirculo de la clase Materia
-        if (circulo) { // Si formaría un círculo, retorna un error 400 Bad Request
-            return ResponseEntity.badRequest().body(circulo);
+    }
+
+    // NUEVOS ENDPOINTS PARA GESTIÓN DE DOCENTES
+
+    @PostMapping("/{materiaId}/docentes/{docenteId}")
+    public ResponseEntity<?> asignarDocente(@PathVariable Long materiaId, @PathVariable Long docenteId) {
+        try {
+            MateriaDTO materia = materiaService.asignarDocente(materiaId, docenteId);
+            return ResponseEntity.ok(materia);
+        } catch (IllegalArgumentException e) {
+            logger.error("[MATERIA] Error al asignar docente: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            logger.error("[MATERIA] Error al asignar docente: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al asignar docente: " + e.getMessage());
         }
-        return ResponseEntity.ok(circulo);
+    }
+
+    @DeleteMapping("/{materiaId}/docentes")
+    public ResponseEntity<?> desasignarDocente(@PathVariable Long materiaId) {
+        try {
+            MateriaDTO materia = materiaService.eliminarAsignacionDocente(materiaId);
+            return ResponseEntity.ok(materia);
+        } catch (Exception e) {
+            logger.error("[MATERIA] Error al desasignar docente: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al desasignar docente: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/docentes/{docenteId}")
+    public ResponseEntity<List<MateriaDTO>> obtenerMateriasPorDocente(@PathVariable Long docenteId) {
+        try {
+            List<MateriaDTO> materias = materiaService.obtenerMateriasPorDocente(docenteId);
+            return ResponseEntity.ok(materias);
+        } catch (Exception e) {
+            logger.error("[MATERIA] Error al obtener materias por docente: {}", e.getMessage());
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    // ENDPOINTS PARA GESTIÓN DE PREREQUISITOS
+
+    @PostMapping("/{materiaId}/prerequisitos/{prerequisitoId}")
+    public ResponseEntity<?> agregarPrerequisito(@PathVariable Long materiaId, @PathVariable Long prerequisitoId) {
+        try {
+            MateriaDTO materia = materiaService.agregarPrerequisito(materiaId, prerequisitoId);
+            return ResponseEntity.ok(materia);
+        } catch (IllegalArgumentException e) {
+            logger.error("[MATERIA] Error al agregar prerequisito: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            logger.error("[MATERIA] Error al agregar prerequisito: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al agregar prerequisito: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{materiaId}/prerequisitos/{prerequisitoId}")
+    public ResponseEntity<?> eliminarPrerequisito(@PathVariable Long materiaId, @PathVariable Long prerequisitoId) {
+        try {
+            MateriaDTO materia = materiaService.eliminarPrerequisito(materiaId, prerequisitoId);
+            return ResponseEntity.ok(materia);
+        } catch (Exception e) {
+            logger.error("[MATERIA] Error al eliminar prerequisito: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error al eliminar prerequisito: " + e.getMessage());
+        }
     }
 }

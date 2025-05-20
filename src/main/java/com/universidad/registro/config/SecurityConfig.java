@@ -4,6 +4,7 @@ import com.universidad.registro.security.JwtAuthenticationEntryPoint;
 import com.universidad.registro.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -79,7 +80,24 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/docentes/**").hasAnyRole("ADMIN", "DOCENTE")
                 .requestMatchers("/api/estudiantes/**").hasAnyRole("ADMIN", "DOCENTE", "ESTUDIANTE")
-                .anyRequest().authenticated()
+
+                    // Materias - Accesos por rol
+                    .requestMatchers(HttpMethod.GET, "/api/materias/**").hasAnyRole("ESTUDIANTE", "DOCENTE", "ADMIN")
+                    .requestMatchers(HttpMethod.POST, "/api/materias/**").hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.PUT, "/api/materias/**").hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.DELETE, "/api/materias/**").hasRole("ADMIN")
+
+                    // Excepción para docentes
+                    .requestMatchers("/api/materias/docentes/**").hasAnyRole("DOCENTE", "ADMIN")
+
+
+// Inscripciones - Accesos por rol
+                            .requestMatchers(HttpMethod.GET, "/api/inscripciones").hasRole("ADMIN")
+                            .requestMatchers(HttpMethod.GET, "/api/inscripciones/**").hasAnyRole("ESTUDIANTE", "DOCENTE", "ADMIN")
+                            .requestMatchers(HttpMethod.POST, "/api/inscripciones").hasAnyRole("ESTUDIANTE", "ADMIN")
+                            .requestMatchers(HttpMethod.PUT, "/api/inscripciones/**").hasAnyRole("DOCENTE", "ADMIN")
+                            .requestMatchers(HttpMethod.DELETE, "/api/inscripciones/**").hasAnyRole("ESTUDIANTE", "ADMIN")
+                    .anyRequest().authenticated()
             );
 
         // Usar el bean jwtAuthenticationFilter directamente
